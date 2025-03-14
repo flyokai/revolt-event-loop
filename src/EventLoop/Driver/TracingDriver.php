@@ -277,4 +277,14 @@ final class TracingDriver implements Driver
             return $line . $e["function"] . "()";
         }, $trace, \array_keys($trace)));
     }
+
+    public function onMysqli(\mysqli $mysqli, \Closure $closure): string
+    {
+        $id = $this->driver->onMysqli($mysqli, $closure);
+
+        $this->creationTraces[$id] = $this->formatStacktrace(\debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS));
+        $this->enabledCallbacks[$id] = true;
+
+        return $id;
+    }
 }
