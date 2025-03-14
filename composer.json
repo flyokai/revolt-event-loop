@@ -1,5 +1,5 @@
 {
-    "name": "revolt/event-loop",
+    "name": "flyokai/revolt-event-loop",
     "description": "Rock-solid event loop for concurrent PHP applications.",
     "keywords": [
         "async",
@@ -29,6 +29,9 @@
             "email": "me@kelunik.com"
         }
     ],
+    "replace": {
+        "revolt/event-loop": "*"
+    },
     "require": {
         "php": ">=8.1"
     },

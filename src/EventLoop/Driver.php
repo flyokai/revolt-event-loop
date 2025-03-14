@@ -315,4 +315,6 @@ interface Driver
      * @return array
      */
     public function __debugInfo(): array;
+
+    public function onMysqli(\mysqli $mysqli, \Closure $closure): string;
 }

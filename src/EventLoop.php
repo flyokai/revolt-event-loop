@@ -413,4 +413,9 @@ final class EventLoop
     {
         // intentionally left blank
     }
+
+    public static function onMysqli(\mysqli $mysqli, \Closure $closure): string
+    {
+        return self::getDriver()->onMysqli($mysqli, $closure);
+    }
 }

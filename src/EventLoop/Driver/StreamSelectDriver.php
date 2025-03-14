@@ -14,6 +14,7 @@ use Revolt\EventLoop\Internal\StreamWritableCallback;
 use Revolt\EventLoop\Internal\TimerCallback;
 use Revolt\EventLoop\Internal\TimerQueue;
 use Revolt\EventLoop\UnsupportedFeatureException;
+use Revolt\EventLoop\Internal\MysqliCallback;
 
 final class StreamSelectDriver extends AbstractDriver
 {
@@ -130,11 +131,32 @@ final class StreamSelectDriver extends AbstractDriver
             }
         }
 
-        $this->selectStreams(
+        $hasMysqliLinks = count($this->mysqliLinks)>0;
+        $hasStreams = (count($this->readStreams)+count($this->writeStreams))>0;
+
+        $blocking = $blocking && ($hasMysqliLinks xor $hasStreams);
+
+        $sleep1 = $this->mysqliPoolLinks(
+            $this->mysqliLinks,
+            $blocking ? $this->getTimeout() : 0.0
+        );
+
+        $sleep2 = $this->selectStreams(
             $this->readStreams,
             $this->writeStreams,
             $blocking ? $this->getTimeout() : 0.0
         );
+
+        if ($sleep1 && $sleep2) {
+            $timeout = $blocking ? $this->getTimeout() : 0.0;
+            if ($timeout < 0) { // Only signal callbacks are enabled, so sleep indefinitely.
+                /** @psalm-suppress ArgumentTypeCoercion */
+                \usleep(\PHP_INT_MAX);
+            } elseif ($timeout > 0) { // Sleep until next timer expires.
+                /** @psalm-suppress ArgumentTypeCoercion $timeout is positive here. */
+                \usleep((int) ($timeout * 1_000_000));
+            }
+        }
 
         $now = $this->now();
 
@@ -179,6 +201,12 @@ final class StreamSelectDriver extends AbstractDriver
                 }
 
                 $this->signalCallbacks[$callback->signal][$callback->id] = $callback;
+            } elseif ($callback instanceof MysqliCallback) {
+                \assert($callback->mysqli instanceof \mysqli);
+
+                $streamId = $callback->streamId;
+                $this->mysqliCallbacks[$streamId][$callback->id] = $callback;
+                $this->mysqliLinks[$streamId] = $callback->mysqli;
             } else {
                 // @codeCoverageIgnoreStart
                 throw new \Error("Unknown callback type");
@@ -217,6 +245,12 @@ final class StreamSelectDriver extends AbstractDriver
                     }
                 }
             }
+        } elseif ($callback instanceof MysqliCallback) {
+            $streamId = $callback->streamId;
+            unset($this->mysqliCallbacks[$streamId][$callback->id]);
+            if (empty($this->mysqliCallbacks[$streamId])) {
+                unset($this->mysqliCallbacks[$streamId], $this->mysqliLinks[$streamId]);
+            }
         } else {
             // @codeCoverageIgnoreStart
             throw new \Error("Unknown callback type");
@@ -228,7 +262,7 @@ final class StreamSelectDriver extends AbstractDriver
      * @param array<int, resource> $read
      * @param array<int, resource> $write
      */
-    private function selectStreams(array $read, array $write, float $timeout): void
+    private function selectStreams(array $read, array $write, float $timeout): bool
     {
         if (!empty($read) || !empty($write)) { // Use stream_select() if there are any streams in the loop.
             if ($timeout >= 0) {
@@ -258,7 +292,7 @@ final class StreamSelectDriver extends AbstractDriver
 
             if ($this->streamSelectIgnoreResult || $result === 0) {
                 $this->streamSelectIgnoreResult = false;
-                return;
+                return false;
             }
 
             if (!$result) {
@@ -294,8 +328,10 @@ final class StreamSelectDriver extends AbstractDriver
                 }
             }
 
-            return;
+            return false;
         }
+
+        return true;
 
         if ($timeout < 0) { // Only signal callbacks are enabled, so sleep indefinitely.
             /** @psalm-suppress ArgumentTypeCoercion */

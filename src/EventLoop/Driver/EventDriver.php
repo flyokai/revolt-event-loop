@@ -240,4 +240,9 @@ final class EventDriver extends AbstractDriver
             }
         }
     }
+
+    public function onMysqli(\mysqli $mysqli, \Closure $closure): string
+    {
+        throw new \RuntimeException(sprintf('mysqli not implemeted in "%s" driver', self::class));
+    }
 }
