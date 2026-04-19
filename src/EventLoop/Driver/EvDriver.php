@@ -155,12 +155,15 @@ final class EvDriver extends AbstractDriver
      */
     protected function dispatch(bool $blocking): void
     {
-        // TODO find timeout value when $blocking=true
-        $this->mysqliPoolLinks(
-            $this->mysqliLinks,
-            0.0
-        );
-        $blocking = $blocking && count($this->mysqliLinks)==0;
+        $hasMysqli = \count($this->mysqliLinks) > 0;
+        if ($blocking && $hasMysqli) {
+            // libev can't poll the mysqli socket, so block briefly inside mysqli::poll
+            // to avoid a 100% CPU spin, then let libev drain its own events non-blocking.
+            $this->mysqliPoolLinks($this->mysqliLinks, 0.005);
+            $this->handle->run(\Ev::RUN_ONCE | \Ev::RUN_NOWAIT);
+            return;
+        }
+        $this->mysqliPoolLinks($this->mysqliLinks, 0.0);
         $this->handle->run($blocking ? \Ev::RUN_ONCE : \Ev::RUN_ONCE | \Ev::RUN_NOWAIT);
     }
 
@@ -223,6 +226,15 @@ final class EvDriver extends AbstractDriver
 
     protected function deactivate(DriverCallback $callback): void
     {
+        if ($callback instanceof MysqliCallback) {
+            $streamId = $callback->streamId;
+            unset($this->mysqliCallbacks[$streamId][$callback->id]);
+            if (empty($this->mysqliCallbacks[$streamId])) {
+                unset($this->mysqliCallbacks[$streamId], $this->mysqliLinks[$streamId]);
+            }
+            return;
+        }
+
         if (isset($this->events[$id = $callback->id])) {
             $this->events[$id]->stop();
 
