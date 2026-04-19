@@ -132,12 +132,16 @@ final class UvDriver extends AbstractDriver
      */
     protected function dispatch(bool $blocking): void
     {
-        // TODO find timeout value when $blocking=true
-        $this->mysqliPoolLinks(
-            $this->mysqliLinks,
-            0.0
-        );
-        $blocking = $blocking && count($this->mysqliLinks)==0;
+        $hasMysqli = \count($this->mysqliLinks) > 0;
+        if ($blocking && $hasMysqli) {
+            // libuv can't poll the mysqli socket, so block briefly inside mysqli::poll
+            // to avoid a 100% CPU spin, then let libuv drain its own events non-blocking.
+            $this->mysqliPoolLinks($this->mysqliLinks, 0.005);
+            /** @psalm-suppress TooManyArguments */
+            \uv_run($this->handle, \UV::RUN_NOWAIT);
+            return;
+        }
+        $this->mysqliPoolLinks($this->mysqliLinks, 0.0);
         /** @psalm-suppress TooManyArguments */
         \uv_run($this->handle, $blocking ? \UV::RUN_ONCE : \UV::RUN_NOWAIT);
     }
@@ -227,6 +231,15 @@ final class UvDriver extends AbstractDriver
     protected function deactivate(DriverCallback $callback): void
     {
         $id = $callback->id;
+
+        if ($callback instanceof MysqliCallback) {
+            $streamId = $callback->streamId;
+            unset($this->mysqliCallbacks[$streamId][$id]);
+            if (empty($this->mysqliCallbacks[$streamId])) {
+                unset($this->mysqliCallbacks[$streamId], $this->mysqliLinks[$streamId]);
+            }
+            return;
+        }
 
         if (!isset($this->events[$id])) {
             return;
