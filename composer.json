@@ -1,5 +1,5 @@
 {
-    "name": "wtsergo/revolt-event-loop",
+    "name": "flyokai/revolt-event-loop",
     "description": "Rock-solid event loop for concurrent PHP applications.",
     "keywords": [
         "async",
@@ -21,7 +21,7 @@
             "email": "ceesjank@gmail.com"
         },
         {
-            "name": "Christian Lück",
+            "name": "Christian L\u00fcck",
             "email": "christian@clue.engineering"
         },
         {
