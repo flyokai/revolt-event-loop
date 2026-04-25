@@ -1,4 +1,6 @@
-# wtsergo/revolt-event-loop
+# flyokai/revolt-event-loop
+
+> User docs → [`README.md`](README.md) · Agent quick-ref → [`CLAUDE.md`](CLAUDE.md) · Agent deep dive → [`AGENTS.md`](AGENTS.md)
 
 Cooperative event loop for async PHP using Fibers. Fork replacing `revolt/event-loop`.
 
