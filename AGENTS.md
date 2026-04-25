@@ -1,5 +1,7 @@
 # flyokai/revolt-event-loop
 
+> User docs → [`README.md`](README.md) · Agent quick-ref → [`CLAUDE.md`](CLAUDE.md) · Agent deep dive → [`AGENTS.md`](AGENTS.md)
+
 Cooperative multitasking event loop for PHP 8.1+ using native Fibers. Fork of `revolt/event-loop` (replaces it via composer). Foundation for all async operations in the Flyokai ecosystem.
 
 ## Core Architecture
