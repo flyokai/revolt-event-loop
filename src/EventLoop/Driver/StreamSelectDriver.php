@@ -332,17 +332,6 @@ final class StreamSelectDriver extends AbstractDriver
         }
 
         return true;
-
-        if ($timeout < 0) { // Only signal callbacks are enabled, so sleep indefinitely.
-            /** @psalm-suppress ArgumentTypeCoercion */
-            \usleep(\PHP_INT_MAX);
-            return;
-        }
-
-        if ($timeout > 0) { // Sleep until next timer expires.
-            /** @psalm-suppress ArgumentTypeCoercion $timeout is positive here. */
-            \usleep((int) ($timeout * 1_000_000));
-        }
     }
 
     /**
